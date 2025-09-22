@@ -6,37 +6,30 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;          
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable,HasRoles,HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles;
+
+    
+    protected $guard_name = 'web';
 
     /**
      * The attributes that are mass assignable.
-     *
      * @var list<string>
      */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+    protected $fillable = ['name','email','password'];
 
     /**
      * The attributes that should be hidden for serialization.
-     *
      * @var list<string>
      */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
+    protected $hidden = ['password','remember_token'];
 
     /**
-     * Get the attributes that should be cast.
-     *
+     * The attributes that should be cast.
      * @return array<string, string>
      */
     protected function casts(): array
@@ -46,4 +39,10 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    
+    public function articles()  { return $this->hasMany(\App\Models\Article::class); }
+    public function bookmarks() { return $this->hasMany(\App\Models\Bookmark::class); }
+    public function likes()     { return $this->hasMany(\App\Models\Like::class); }
 }
+

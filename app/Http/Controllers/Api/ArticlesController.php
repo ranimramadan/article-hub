@@ -1,31 +1,30 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\V1\StoreArticleRequest;
-use App\Http\Requests\V1\UpdateArticleRequest;
-use App\Http\Resources\V1\ArticleResource;
+use App\Http\Requests\Api\StoreArticleRequest;
+use App\Http\Requests\Api\UpdateArticleRequest;
+use App\Http\Resources\Api\ArticleResource;
 use App\Models\Article;
 use App\Models\ArticleTransition;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class ArticlesController extends Controller
 {
-    // عام: قائمة المنشور مع بحث/تصنيف/وسوم
+    // عام: قائمة المنشور مع بحث/فلترة
     public function index(Request $request)
     {
         $q = Article::with(['author:id,name','categories:id,name,slug','tags:id,name,slug'])
             ->published()
             ->search($request->query('q'))
-            ->orderLatestPub();
+            ->orderByDesc('published_at');
 
         if ($slug = $request->query('category')) {
-            $q->whereHas('categories', fn($x) => $x->where('slug',$slug));
+            $q->whereHas('categories', fn($qq) => $qq->where('slug', $slug));
         }
         if ($slug = $request->query('tag')) {
-            $q->whereHas('tags', fn($x) => $x->where('slug',$slug));
+            $q->whereHas('tags', fn($qq) => $qq->where('slug', $slug));
         }
 
         return ArticleResource::collection($q->paginate(12));
@@ -44,8 +43,8 @@ class ArticlesController extends Controller
     {
         $q = Article::with('categories:id,name,slug','tags:id,name,slug')
             ->ownedBy($request->user())
-            ->when($request->query('status'), fn($qq,$s)=>$qq->status($s))
-            ->orderLatestCreated();
+            ->when($request->query('status'), fn($qq,$s) => $qq->status($s))
+            ->latest('created_at');
 
         return ArticleResource::collection($q->paginate(12));
     }
@@ -53,43 +52,32 @@ class ArticlesController extends Controller
     // محمي: إنشاء
     public function store(StoreArticleRequest $request)
     {
-        $user = $request->user();
         $article = new Article($request->validated());
-        $article->user_id = $user->id; // author
-        $article->status = 'draft';
+        $article->user_id = $request->user()->id;
+        $article->status  = 'draft';
         $article->save();
 
-        // ربط تصنيفات/وسوم (اختياري)
-        if ($cats = $request->input('category_ids')) {
-            $article->categories()->sync($cats);
-        }
-        if ($tags = $request->input('tag_ids')) {
-            $article->tags()->sync($tags);
-        }
+        if ($cats = $request->input('category_ids')) $article->categories()->sync($cats);
+        if ($tags = $request->input('tag_ids'))     $article->tags()->sync($tags);
 
-        // ميديا (اختياري لاحقًا بالويب/رفع ملفات)
-        return (new ArticleResource($article->load('categories','tags')))->response()->setStatusCode(201);
+        return (new ArticleResource($article->load('categories','tags')))
+            ->response()->setStatusCode(201);
     }
 
-    // محمي: تعديل (مسموح للمؤلف عندما draft/rejected)
+    // محمي: تعديل (draft/rejected فقط)
     public function update(UpdateArticleRequest $request, Article $article)
     {
         $this->authorize('update', $article);
 
-        $article->fill($request->validated());
-        $article->save();
+        $article->fill($request->validated())->save();
 
-        if ($cats = $request->input('category_ids')) {
-            $article->categories()->sync($cats);
-        }
-        if ($tags = $request->input('tag_ids')) {
-            $article->tags()->sync($tags);
-        }
+        if ($cats = $request->input('category_ids')) $article->categories()->sync($cats);
+        if ($tags = $request->input('tag_ids'))     $article->tags()->sync($tags);
 
         return new ArticleResource($article->load('categories','tags'));
     }
 
-    // محمي: حذف (مسموح عندما draft/rejected)
+    // محمي: حذف (draft/rejected فقط)
     public function destroy(Request $request, Article $article)
     {
         $this->authorize('delete', $article);
@@ -115,5 +103,19 @@ class ArticlesController extends Controller
         ]);
 
         return response()->json(['message' => 'Submitted for review.']);
+    }
+
+    // محمي: سجل تغيّر الحالة للمقال
+    public function transitions(Request $request, Article $article)
+    {
+        // يسمح للكاتب يشوف السجل، وبالويب لاحقًا ممكن نعرضه بعد النشر
+        $this->authorize('view', $article);
+
+        $items = $article->transitions()
+            ->with('actor:id,name')
+            ->latest()
+            ->get(['id','from_status','to_status','note','acted_by','created_at']);
+
+        return response()->json(['data' => $items]);
     }
 }

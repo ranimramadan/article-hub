@@ -7,8 +7,9 @@ use App\Http\Requests\Api\StoreArticleRequest;
 use App\Http\Requests\Api\UpdateArticleRequest;
 use App\Http\Resources\Api\ArticleResource;
 use App\Models\Article;
-use App\Models\ArticleTransition;
 use Illuminate\Http\Request;
+use App\Actions\Articles\SubmitArticleAction;
+use DomainException;
 
 class ArticlesController extends Controller
 {
@@ -85,30 +86,27 @@ class ArticlesController extends Controller
         return response()->noContent();
     }
 
-    // محمي: طلب نشر (draft -> pending)
-    public function submit(Request $request, Article $article)
+    // محمي: طلب نشر (draft -> pending) — الآن عبر الأكشن لتوحيد المنطق مع الويب
+    public function submit(Request $request, Article $article, SubmitArticleAction $submit)
     {
         $this->authorize('submit', $article);
 
-        $from = $article->status;
-        $article->status = 'pending';
-        $article->save();
+        try {
+            $updated = $submit($request->user(), $article, $request->input('note'));
 
-        ArticleTransition::create([
-            'article_id'  => $article->id,
-            'from_status' => $from,
-            'to_status'   => 'pending',
-            'acted_by'    => $request->user()->id,
-            'note'        => $request->input('note'),
-        ]);
-
-        return response()->json(['message' => 'Submitted for review.']);
+            return response()->json([
+                'message' => 'Submitted for review.',
+                'status'  => $updated->status, // should be 'pending'
+            ]);
+        } catch (DomainException $e) {
+            // لو الحالة غير صالحة أو ليس المالك… الأكشن يرمي DomainException
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
     }
 
     // محمي: سجل تغيّر الحالة للمقال
     public function transitions(Request $request, Article $article)
     {
-        // يسمح للكاتب يشوف السجل، وبالويب لاحقًا ممكن نعرضه بعد النشر
         $this->authorize('view', $article);
 
         $items = $article->transitions()

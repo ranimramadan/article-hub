@@ -1,0 +1,121 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\StoreArticleRequest;
+use App\Http\Requests\Api\UpdateArticleRequest;
+use App\Http\Resources\Api\ArticleResource;
+use App\Models\Article;
+use App\Models\ArticleTransition;
+use Illuminate\Http\Request;
+
+class ArticlesController extends Controller
+{
+    // عام: قائمة المنشور مع بحث/فلترة
+    public function index(Request $request)
+    {
+        $q = Article::with(['author:id,name','categories:id,name,slug','tags:id,name,slug'])
+            ->published()
+            ->search($request->query('q'))
+            ->orderByDesc('published_at');
+
+        if ($slug = $request->query('category')) {
+            $q->whereHas('categories', fn($qq) => $qq->where('slug', $slug));
+        }
+        if ($slug = $request->query('tag')) {
+            $q->whereHas('tags', fn($qq) => $qq->where('slug', $slug));
+        }
+
+        return ArticleResource::collection($q->paginate(12));
+    }
+
+    // عام: إظهار مقال منشور فقط
+    public function show(Article $article)
+    {
+        abort_unless($article->status === 'published', 404);
+        $article->load(['author:id,name','categories:id,name,slug','tags:id,name,slug','media']);
+        return new ArticleResource($article);
+    }
+
+    // محمي: “مقالاتي”
+    public function mine(Request $request)
+    {
+        $q = Article::with('categories:id,name,slug','tags:id,name,slug')
+            ->ownedBy($request->user())
+            ->when($request->query('status'), fn($qq,$s) => $qq->status($s))
+            ->latest('created_at');
+
+        return ArticleResource::collection($q->paginate(12));
+    }
+
+    // محمي: إنشاء
+    public function store(StoreArticleRequest $request)
+    {
+        $article = new Article($request->validated());
+        $article->user_id = $request->user()->id;
+        $article->status  = 'draft';
+        $article->save();
+
+        if ($cats = $request->input('category_ids')) $article->categories()->sync($cats);
+        if ($tags = $request->input('tag_ids'))     $article->tags()->sync($tags);
+
+        return (new ArticleResource($article->load('categories','tags')))
+            ->response()->setStatusCode(201);
+    }
+
+    // محمي: تعديل (draft/rejected فقط)
+    public function update(UpdateArticleRequest $request, Article $article)
+    {
+        $this->authorize('update', $article);
+
+        $article->fill($request->validated())->save();
+
+        if ($cats = $request->input('category_ids')) $article->categories()->sync($cats);
+        if ($tags = $request->input('tag_ids'))     $article->tags()->sync($tags);
+
+        return new ArticleResource($article->load('categories','tags'));
+    }
+
+    // محمي: حذف (draft/rejected فقط)
+    public function destroy(Request $request, Article $article)
+    {
+        $this->authorize('delete', $article);
+        $article->delete();
+        return response()->noContent();
+    }
+
+    // محمي: طلب نشر (draft -> pending)
+    public function submit(Request $request, Article $article)
+    {
+        $this->authorize('submit', $article);
+
+        $from = $article->status;
+        $article->status = 'pending';
+        $article->save();
+
+        ArticleTransition::create([
+            'article_id'  => $article->id,
+            'from_status' => $from,
+            'to_status'   => 'pending',
+            'acted_by'    => $request->user()->id,
+            'note'        => $request->input('note'),
+        ]);
+
+        return response()->json(['message' => 'Submitted for review.']);
+    }
+
+    // محمي: سجل تغيّر الحالة للمقال
+    public function transitions(Request $request, Article $article)
+    {
+        // يسمح للكاتب يشوف السجل، وبالويب لاحقًا ممكن نعرضه بعد النشر
+        $this->authorize('view', $article);
+
+        $items = $article->transitions()
+            ->with('actor:id,name')
+            ->latest()
+            ->get(['id','from_status','to_status','note','acted_by','created_at']);
+
+        return response()->json(['data' => $items]);
+    }
+}

@@ -9,7 +9,7 @@ use App\Http\Resources\Api\ArticleResource;
 use App\Models\Article;
 use Illuminate\Http\Request;
 use App\Actions\Articles\SubmitArticleAction;
-use DomainException;
+
 
 class ArticlesController extends Controller
 {
@@ -86,22 +86,17 @@ class ArticlesController extends Controller
         return response()->noContent();
     }
 
-    // محمي: طلب نشر (draft -> pending) — الآن عبر الأكشن لتوحيد المنطق مع الويب
+    // محمي: طلب نشر (draft -> pending)
     public function submit(Request $request, Article $article, SubmitArticleAction $submit)
     {
         $this->authorize('submit', $article);
 
-        try {
-            $updated = $submit($request->user(), $article, $request->input('note'));
+        $updated = $submit($request->user(), $article, $request->input('note'));
 
-            return response()->json([
-                'message' => 'Submitted for review.',
-                'status'  => $updated->status, // should be 'pending'
-            ]);
-        } catch (DomainException $e) {
-            // لو الحالة غير صالحة أو ليس المالك… الأكشن يرمي DomainException
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
+        return response()->json([
+            'message' => 'Submitted for review.',
+            'status'  => $updated->status,
+        ]);
     }
 
     // محمي: سجل تغيّر الحالة للمقال

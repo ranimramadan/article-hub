@@ -10,6 +10,11 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
+    public function __construct()
+{
+    $this->middleware(['role_or_permission:admin|users.manage']);
+}
+
     // قائمة + بحث
     public function index(Request $request)
     {

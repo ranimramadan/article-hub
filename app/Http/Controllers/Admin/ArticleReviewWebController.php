@@ -10,10 +10,7 @@ use Illuminate\Http\Request;
 
 class ArticleReviewWebController extends Controller
 {
-    public function __construct()
-{
-    $this->middleware(['role:admin']); 
-}
+    
     // قائمة الانتظار: العنوان/الكاتب/تاريخ الإنشاء
     public function pending()
     {

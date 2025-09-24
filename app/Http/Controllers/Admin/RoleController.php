@@ -9,11 +9,7 @@ use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
 {
-    public function __construct()
-{
-    $this->middleware(['role_or_permission:admin|permissions.manage']);
-}
-
+    
     public function index()
     {
         $roles = Role::query()->withCount('permissions')->orderBy('name')->paginate(20);

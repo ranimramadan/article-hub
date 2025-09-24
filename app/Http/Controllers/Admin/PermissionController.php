@@ -8,11 +8,7 @@ use Spatie\Permission\Models\Permission;
 
 class PermissionController extends Controller
 {
-    public function __construct()
-{
-    $this->middleware(['role_or_permission:admin|permissions.manage']);
-}
-
+    
     public function index()
     {
         $permissions = Permission::orderBy('name')->paginate(30);

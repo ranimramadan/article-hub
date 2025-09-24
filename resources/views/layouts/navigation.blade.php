@@ -16,6 +16,26 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
                 </div>
+                @role('admin')
+<div class="ms-4">
+    <x-dropdown align="right" width="48">
+        <x-slot name="trigger">
+            <button class="inline-flex items-center px-1 pt-1 text-sm text-slate-600">
+                لوحة الأدمن
+                <svg class="ms-1 h-4 w-4" viewBox="0 0 20 20"><path d="M5.25 7.5L10 12.25L14.75 7.5"/></svg>
+            </button>
+        </x-slot>
+
+        <x-slot name="content">
+            <x-dropdown-link :href="route('admin.articles.pending')">المعلّقة</x-dropdown-link>
+            <x-dropdown-link :href="route('admin.roles.index')">الأدوار</x-dropdown-link>
+            <x-dropdown-link :href="route('admin.permissions.index')">الصلاحيات</x-dropdown-link>
+            <x-dropdown-link :href="route('admin.users.index')">المستخدمون</x-dropdown-link>
+        </x-slot>
+    </x-dropdown>
+</div>
+@endrole
+
             </div>
 
             <!-- Settings Dropdown -->

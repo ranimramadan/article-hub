@@ -15,7 +15,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-
+Route::view('/chatbot', 'chatbot');
 // قائمة عامة للمقالات المنشورة مع بحث/فلترة اختيارية
 Route::get('/articles', [PublicArticlesController::class, 'index'])->name('articles.index');
 

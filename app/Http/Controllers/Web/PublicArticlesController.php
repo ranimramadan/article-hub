@@ -8,31 +8,29 @@ use Illuminate\Http\Request;
 
 class PublicArticlesController extends Controller
 {
-    
     public function index(Request $request)
     {
-        $q = Article::with(['author:id,name','categories:id,name,slug','tags:id,name,slug'])
+        $articles = Article::query()
             ->published()
-            ->search($request->query('q'))
-            ->orderByDesc('published_at');
+            ->when($request->search, function($query, $search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('excerpt', 'like', "%{$search}%")
+                      ->orWhere('content', 'like', "%{$search}%");
+                });
+            })
+            ->with('author')
+            ->latest('published_at')
+            ->paginate(12)
+            ->withQueryString();
 
-        if ($slug = $request->query('category')) {
-            $q->whereHas('categories', fn($qq) => $qq->where('slug', $slug));
-        }
-        if ($slug = $request->query('tag')) {
-            $q->whereHas('tags', fn($qq) => $qq->where('slug', $slug));
-        }
-
-        return view('articles.index', [
-            'items' => $q->paginate(12),
-            'q'     => $request->query('q'),
-        ]);
+        return view('articles.index', compact('articles'));
     }
 
     public function show(Article $article)
     {
-        abort_unless($article->status === 'published', 404);
-        $article->load(['author:id,name','categories:id,name,slug','tags:id,name,slug','media']);
+        abort_if($article->status !== 'published', 404);
+        
         return view('articles.show', compact('article'));
     }
 }

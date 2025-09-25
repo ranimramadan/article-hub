@@ -11,10 +11,13 @@ class Article extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
-    protected $fillable = ['title','body','status'];
-    protected $casts = ['published_at' => 'datetime'];
-
+    protected $fillable = ['title', 'body', 'status','published_at','user_id'];
+    protected $casts = [
+        'published_at' => 'datetime'
+    ];
     
+    protected $appends = ['excerpt'];
+
     public function author()      { return $this->belongsTo(User::class, 'user_id'); }
     public function categories()  { return $this->belongsToMany(Category::class, 'article_category')->withTimestamps(); }
     public function tags()        { return $this->belongsToMany(Tag::class, 'article_tag')->withTimestamps(); }
@@ -23,7 +26,11 @@ class Article extends Model implements HasMedia
     public function transitions() { return $this->hasMany(ArticleTransition::class); }
 
     
-    public function scopePublished($q)        { return $q->where('status','published'); }
+    public function scopePublished($query)
+    {
+        return $query->where('status', 'published')
+                     ->whereNotNull('published_at');
+    }
     public function scopePending($q)          { return $q->where('status','pending'); }
     public function scopeDraft($q)            { return $q->where('status','draft'); }
     public function scopeRejected($q)         { return $q->where('status','rejected'); }
@@ -40,5 +47,10 @@ class Article extends Model implements HasMedia
     public function registerMediaCollections(): void {
         $this->addMediaCollection('cover')->singleFile();
         $this->addMediaCollection('images');
+    }
+
+    public function getExcerptAttribute()
+    {
+        return \Illuminate\Support\Str::limit(strip_tags($this->body), 150);
     }
 }

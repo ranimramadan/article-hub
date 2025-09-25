@@ -45,6 +45,13 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        // return redirect(route('dashboard', absolute: false));
+        // بعد Auth::login($user);
+return redirect()->intended(
+    $user->hasRole('admin')
+        ? route('dashboard')                 // الأدمن -> لوحة الأدمن
+        : route('user.articles.index')       // المستخدم العادي -> مقالتي
+);
+
     }
 }

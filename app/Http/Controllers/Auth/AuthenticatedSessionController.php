@@ -25,21 +25,32 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
-
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // توجيه ديناميكي حسب الدور/الصلاحية
+        return redirect()->intended($this->redirectPathFor($request->user()));
     }
 
-    /**
-     * Destroy an authenticated session.
-     */
+    protected function redirectPathFor($user): string
+    {
+        // لو أدمن، أو معه أي صلاحية إدارية → لوحة الأدمن
+        if (
+            $user->hasRole('admin')
+            || $user->hasAnyPermission([
+                'users.manage', 'roles.manage', 'permissions.manage', 'articles.review'
+            ])
+        ) {
+            return route('admin.articles.pending');
+        }
+
+        // غير ذلك → لوحة المستخدم العادي
+        return route('user.articles.index');
+    }
+
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
-
+        auth()->guard('web')->logout();
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
 
         return redirect('/');

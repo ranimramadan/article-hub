@@ -11,7 +11,7 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $email = env('ADMIN_EMAIL'); // ضعي ADMIN_EMAIL بالـ .env إن حابة تختاري مستخدم بعينه
+        $email = env('ADMIN_EMAIL'); 
 
         if ($email) {
             $user = User::where('email', $email)->first();

@@ -30,7 +30,7 @@ class PublishArticleAction
                 'note'        => $note,
             ]);
 
-            event(new \App\Events\ArticlePublished($article, $actor, $note));
+           
 
             return $article->fresh();
         });

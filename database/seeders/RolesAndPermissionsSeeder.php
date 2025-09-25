@@ -11,12 +11,12 @@ class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
     {
-        // امسحي كاش الصلاحيات قبل/بعد
+        
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $guard = 'web';
 
-        // الصلاحيات المطلوبة للوحة الأدمن
+        
         $permissions = [
             'roles.manage',
             'permissions.manage',
@@ -30,14 +30,14 @@ class RolesAndPermissionsSeeder extends Seeder
             );
         }
 
-        // الأدوار
+        
         $admin  = Role::firstOrCreate(['name' => 'admin',  'guard_name' => $guard]);
         $author = Role::firstOrCreate(['name' => 'author', 'guard_name' => $guard]);
 
-        // أعطِ كل الصلاحيات لدور الأدمن
+       
         $admin->syncPermissions(Permission::whereIn('name', $permissions)->get());
 
-        // (اختياري) ما في صلاحيات خاصة للـauthor حالياً
+        
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }

@@ -29,7 +29,7 @@ class RejectArticleAction
                 'note'        => $note,
             ]);
 
-            event(new \App\Events\ArticleRejected($article, $actor, $note));
+            // 
 
             return $article->fresh();
         });

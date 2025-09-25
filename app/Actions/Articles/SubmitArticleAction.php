@@ -29,7 +29,7 @@ class SubmitArticleAction
                 'note'        => $note,
             ]);
 
-            event(new \App\Events\ArticleSubmitted($article, $actor, $note));
+            
 
             return $article->fresh();
         });

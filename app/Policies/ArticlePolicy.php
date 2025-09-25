@@ -54,4 +54,11 @@ class ArticlePolicy
     {
         return $user->hasRole('admin') && $article->status === 'pending';
     }
+       // سحب الطلب: فقط من pending → draft
+    // public function withdraw(User $user, Article $article): bool
+    // {
+    //     return $article->user_id === $user->id
+    //         && $article->status === 'pending';
+    // }
 }
+

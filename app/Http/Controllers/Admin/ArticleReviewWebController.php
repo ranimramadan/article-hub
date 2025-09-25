@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use App\Actions\Articles\PublishArticleAction;
 use App\Actions\Articles\RejectArticleAction;
-use App\Http\Controllers\Controller;
 use App\Models\Article;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate; 
 
 class ArticleReviewWebController extends Controller
 {
-    
-    // قائمة الانتظار: العنوان/الكاتب/تاريخ الإنشاء
+    // قائمة الانتظار
     public function pending()
     {
         $items = Article::with('author:id,name')
@@ -22,7 +22,7 @@ class ArticleReviewWebController extends Controller
         return view('admin.articles.pending', compact('items'));
     }
 
-    // كل المقالات مع فلتر الحالة
+    // كل المقالات مع فلتر الحالة/بحث
     public function index(Request $request)
     {
         $q = Article::with('author:id,name')->latest('created_at');
@@ -40,11 +40,11 @@ class ArticleReviewWebController extends Controller
 
     public function publish(Request $request, Article $article, PublishArticleAction $publish)
     {
-        $this->authorize('publish', $article);
+        Gate::authorize('publish', $article); // بدل authorize()
 
-        // idempotency: إذا منشور مسبقًا، لا تعيد الكرة
+        // idempotency
         if ($article->status === 'published') {
-            return back()->with('ok', 'The article was previously published');
+            return back()->with('ok', 'The article was previously published.');
         }
 
         $publish($request->user(), $article, $request->input('note'));
@@ -53,13 +53,14 @@ class ArticleReviewWebController extends Controller
 
     public function reject(Request $request, Article $article, RejectArticleAction $reject)
     {
-        $this->authorize('reject', $article);
+        Gate::authorize('reject', $article); 
+        
 
         if ($article->status === 'rejected') {
-            return back()->with('ok', 'Article already rejected');
+            return back()->with('ok', 'Article already rejected.');
         }
 
         $reject($request->user(), $article, $request->input('note'));
-        return back()->with('ok', 'The article was rejected');
+        return back()->with('ok', 'The article was rejected.');
     }
 }

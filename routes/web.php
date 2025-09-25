@@ -1,5 +1,5 @@
 <?php
-
+use App\Models\Article;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\{
@@ -8,10 +8,31 @@ use App\Http\Controllers\Admin\{
     PermissionController,
     UserController
 };
+use App\Http\Controllers\Web\MyArticlesController;
+use App\Http\Controllers\Web\PublicArticlesController;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+
+// قائمة عامة للمقالات المنشورة مع بحث/فلترة اختيارية
+Route::get('/articles', [PublicArticlesController::class, 'index'])->name('articles.index');
+
+// عرض مقال منشور فقط
+Route::get('/articles/{article}', [PublicArticlesController::class, 'show'])->name('articles.show');
+
+
+
+Route::get('/', function () {
+    $articles = \App\Models\Article::published()
+        ->latest('published_at')
+        ->take(6)
+        ->get();
+
+    return view('welcome', compact('articles'));
+})->name('home');
+
 
 Route::get('/dashboard', function () {
     return view('dashboard');
@@ -27,10 +48,10 @@ Route::middleware('auth')->group(function () {
 
 /*
 |----------------------------------------------------------------------
-| مراجعة المقالات (Admin فقط)
+| 
 |----------------------------------------------------------------------
 */
-Route::middleware(['auth','role:admin'])
+Route::middleware(['auth','role_or_permission:admin|articles.review'])
     ->prefix('admin')->name('admin.')
     ->group(function () {
         // Pending list + (اختياري) جميع المقالات
@@ -90,6 +111,26 @@ Route::middleware(['auth','role_or_permission:admin|users.manage'])
         Route::match (['put','patch'], '/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}',      [UserController::class, 'destroy'])->name('users.destroy');
     });
+
+
+
+Route::middleware(['auth'])
+    ->prefix('user')->name('user.')
+    ->group(function () {
+        Route::get   ('/articles',                 [MyArticlesController::class, 'index'])->name('articles.index');
+        Route::get   ('/articles/create',          [MyArticlesController::class, 'create'])->name('articles.create');
+        Route::post  ('/articles',                 [MyArticlesController::class, 'store'])->name('articles.store');
+        Route::get   ('/articles/{article}/edit',  [MyArticlesController::class, 'edit'])->name('articles.edit');
+        Route::match (['put','patch'], '/articles/{article}', [MyArticlesController::class, 'update'])->name('articles.update');
+        Route::delete('/articles/{article}',       [MyArticlesController::class, 'destroy'])->name('articles.destroy');
+
+        // طلب النشر + سجل التحوّلات
+        Route::post  ('/articles/{article}/submit',      [MyArticlesController::class, 'submit'])->name('articles.submit');
+        Route::get   ('/articles/{article}/transitions', [MyArticlesController::class, 'transitions'])->name('articles.transitions');
+    });
+
+
+
 
 
 require __DIR__.'/auth.php';
